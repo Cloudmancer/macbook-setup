@@ -1,0 +1,23 @@
+---
+# common/directories/defaults/main.yml
+
+# Directories to create
+directories_list: []
+
+# Default directory permissions
+directories_mode: "0755"
+
+# Optional ownership (omit to use current user / default behavior)
+# directories_owner: "{{ ansible_user_id }}"
+# directories_group: "{{ ansible_user_gid | default(omit) }}"
+directories_owner: null
+directories_group: null
+
+# Label used in task names/debug output
+directories_label: "directories"
+
+# Failure behavior
+directories_fail_on_error: true
+
+# Optional diagnostics
+directories_show_summary: true
