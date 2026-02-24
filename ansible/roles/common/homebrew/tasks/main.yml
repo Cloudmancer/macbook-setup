@@ -1,0 +1,44 @@
+---
+# common/homebrew/tasks/main.yml
+
+- name: Homebrew | Run Homebrew tasks ("{{ homebrew_install_label }}")
+  block:
+    - name: Homebrew | update ("{{ homebrew_install_label }}")
+      community.general.homebrew:
+        update_homebrew: true
+      when: homebrew_update | default(false)
+
+    - name: Homebrew | Install Homebrew formula packages ("{{ homebrew_install_label }}")
+      community.general.homebrew:
+        name: "{{ homebrew_formula_list | default([]) }}"
+        state: present
+      when: (homebrew_formula_list | default([]) | length) > 0
+
+    - name: Homebrew | Install Homebrew cask apps ("{{ homebrew_install_label }}")
+      community.general.homebrew_cask:
+        name: "{{ homebrew_cask_list | default([]) }}"
+        state: present
+      when: (homebrew_cask_list | default([]) | length) > 0
+
+  rescue:
+    - name: Homebrew | Error summary ("{{ homebrew_install_label }}")"
+      ansible.builtin.debug:
+        msg: |
+          ⚠️ Homebrew install failed for {{ homebrew_install_label }}.
+
+          Failed task: {{ ansible_failed_task.name | default('unknown') }}
+          Error: {{ ansible_failed_result.msg | default(ansible_failed_result.stderr | default('Unknown error')) }}
+
+    - name: Homebrew | Fail if configured ("{{ homebrew_install_label }}")
+      ansible.builtin.fail:
+        msg: "Homebrew install failed for {{ homebrew_install_label }}."
+      when: homebrew_fail_on_error | default(true)
+
+  always:
+    - name: Homebrew | Summary ("{{ homebrew_install_label }}")
+      ansible.builtin.debug:
+        msg:
+          - "Label: {{ homebrew_install_label }}"
+          - "Formula count requested: {{ (homebrew_formula_list | default([]) | length) }}"
+          - "Cask count requested: {{ (homebrew_cask_list | default([]) | length) }}"
+      when: homebrew_show_summary | default(true)

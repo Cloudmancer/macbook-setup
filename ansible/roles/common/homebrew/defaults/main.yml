@@ -1,0 +1,18 @@
+---
+# common/homebrew/defaults/main.yml
+
+# Optional: Run 'brew update' before installs
+homebrew_update: false
+
+# Formula and cask lists to install
+homebrew_formula_list: []
+homebrew_cask_list: []
+
+# Label used in task names/debug output
+homebrew_install_label: "homebrew"
+
+# Failure behavior
+homebrew_fail_on_error: true
+
+# Optional diagnostics
+homebrew_show_summary: true
