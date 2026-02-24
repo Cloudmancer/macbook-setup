@@ -1,0 +1,7 @@
+# IDE and OS Files and Directories
+**/.vscode/*
+**/.notes/*
+**/.DS_Store
+
+# Python Files and Directories
+**/.venv/*
