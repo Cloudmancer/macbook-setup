@@ -1,0 +1,40 @@
+---
+# macos_base/tasks/main.yml
+
+- name: macos_base | Install general apps via common Homebrew role
+  ansible.builtin.include_role:
+    name: common/homebrew
+    apply:
+      tags:
+        - general
+        - brew
+        - packages
+  vars:
+    homebrew_update: "{{ macos_base_brew_update | default(false) }}"
+    homebrew_formula_list: "{{ homebrew_packages_general | default([]) }}"
+    homebrew_cask_list: "{{ homebrew_cask_apps_general | default([]) }}"
+    homebrew_install_label: "macos_base general apps"
+    homebrew_fail_on_error: "{{ macos_base_brew_fail_on_error | default(true) }}"
+    homebrew_show_summary: true
+  tags: [brew, apps, general]
+
+- name: macos_base | Create general user directories via common role
+  ansible.builtin.include_role:
+    name: common/directories
+    apply:
+      tags:
+        - general
+        - dirs
+        - folders
+  vars:
+    directories_list: "{{ macos_base_directories_list | default([]) }}"
+    directories_mode: "{{ macos_base_directories_mode | default('0755') }}"
+    directories_label: "macos_base general user directories"
+    directories_fail_on_error: "{{ macos_base_directories_fail_on_error | default(true) }}"
+    directories_show_summary: true
+  tags: [dirs, folders, general]
+
+- name: macos_base | Dock customization
+  ansible.builtin.include_tasks: dock.yml
+  when: macos_base_enable_dock | default(true)
+  tags: [base, dock, ui]

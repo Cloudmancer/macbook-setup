@@ -1,0 +1,28 @@
+---
+# macos_base/defaults/main.yml
+
+# Homebrew attributes
+macos_base_brew_update: false
+macos_base_brew_fail_on_error: true
+
+homebrew_packages_general:
+  - dockutil
+homebrew_cask_apps_general:
+  - google-chrome
+
+# General user directories (non-developer oriented)
+macos_base_directories_list:
+  - "{{ ansible_facts['env']['HOME'] }}/Downloads/Installers"
+
+macos_base_directories_mode: "0755"
+macos_base_directories_fail_on_error: true
+
+# Dock customization
+macos_base_dock_enable: true
+macos_base_dock_fail_on_error: false
+dock_groups_base_path: "{{ ansible_env.HOME }}/Documents/DockGroups"
+dock_groups: {}
+
+# Individual app actions
+dock_apps_add: []
+dock_apps_remove: []
