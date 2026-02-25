@@ -1,0 +1,165 @@
+---
+# macos_base/tasks/dock.yml
+
+- name: Dock customization
+  tags: [dock, ui, base]
+  block:
+    - name: Check dockutil availability
+      ansible.builtin.command: /bin/bash -lc "command -v dockutil"
+      register: dockutil_check
+      changed_when: false
+      failed_when: false
+
+    - name: Skip Dock customization if dockutil is not installed
+      ansible.builtin.debug:
+        msg: "dockutil not found. Skipping Dock customization. Install 'dockutil' via Homebrew to enable this."
+      when: dockutil_check.rc != 0
+
+    - name: Manage Dock groups and app items
+      when: dockutil_check.rc == 0
+      block:
+        - name: Ensure Dock group base path exists
+          ansible.builtin.file:
+            path: "{{ dock_groups_base_path }}"
+            state: directory
+            mode: "0755"
+          when: (dock_groups | default({}) | length) > 0
+
+        - name: Create group folders
+          ansible.builtin.file:
+            path: "{{ dock_groups_base_path }}/{{ item.key }}"
+            state: directory
+            mode: "0755"
+          loop: "{{ (dock_groups | default({})) | dict2items }}"
+          loop_control:
+            label: "{{ item.key }}"
+          when: (dock_groups | default({}) | length) > 0
+
+        - name: Create app aliases inside groups
+          ansible.builtin.shell: |
+            set -e
+
+            APP_NAME="{{ item.1 }}"
+            GROUP_NAME="{{ item.0.key }}"
+
+            if [ -d "/System/Applications/${APP_NAME}.app" ]; then
+              SRC="/System/Applications/${APP_NAME}.app"
+            elif [ -d "/System/Applications/Utilities/${APP_NAME}.app" ]; then
+              SRC="/System/Applications/Utilities/${APP_NAME}.app"
+            elif [ -d "/Applications/${APP_NAME}.app" ]; then
+              SRC="/Applications/${APP_NAME}.app"
+            else
+              echo "App not found: ${APP_NAME}"
+              exit 0
+            fi
+
+            DEST="{{ dock_groups_base_path }}/${GROUP_NAME}/${APP_NAME}.app"
+
+            # If link already exists and points correctly, no change
+            if [ -L "$DEST" ]; then
+              CURRENT_TARGET="$(readlink "$DEST" || true)"
+              if [ "$CURRENT_TARGET" = "$SRC" ]; then
+                echo "NoChange"
+                exit 0
+              fi
+            elif [ -e "$DEST" ]; then
+              # Existing file/dir with same name but not a symlink
+              rm -rf "$DEST"
+            fi
+
+            rm -f "$DEST"
+            ln -s "$SRC" "$DEST"
+            echo "Changed"
+          args:
+            executable: /bin/bash
+          loop: "{{ (dock_groups | default({}) | dict2items) | subelements('value') }}"
+          loop_control:
+            label: "{{ item.0.key }} -> {{ item.1 }}"
+          register: dock_group_alias_results
+          changed_when: "'Changed' in (dock_group_alias_results.stdout | default(''))"
+          failed_when: false
+          when: (dock_groups | default({}) | length) > 0
+
+        - name: Add group folders to the Dock
+          ansible.builtin.shell: |
+            if ! dockutil --list | grep -Fq "{{ item.key }}"; then
+              dockutil --add '{{ dock_groups_base_path }}/{{ item.key }}' --view grid --display folder --no-restart
+              echo "Changed"
+            else
+              echo "NoChange"
+            fi
+          args:
+            executable: /bin/bash
+          loop: "{{ (dock_groups | default({})) | dict2items }}"
+          loop_control:
+            label: "{{ item.key }}"
+          register: dock_group_add_results
+          changed_when: "'Changed' in (dock_group_add_results.stdout | default(''))"
+          failed_when: false
+          notify: Restart Dock
+          when: (dock_groups | default({}) | length) > 0
+
+        - name: Add apps to Dock
+          ansible.builtin.shell: |
+            set -e
+
+            APP_NAME="{{ item }}"
+
+            if [ -d "/System/Applications/${APP_NAME}.app" ]; then
+              APP_PATH="/System/Applications/${APP_NAME}.app"
+            elif [ -d "/System/Applications/Utilities/${APP_NAME}.app" ]; then
+              APP_PATH="/System/Applications/Utilities/${APP_NAME}.app"
+            elif [ -d "/Applications/${APP_NAME}.app" ]; then
+              APP_PATH="/Applications/${APP_NAME}.app"
+            else
+              echo "App not found: ${APP_NAME}"
+              exit 0
+            fi
+
+            if ! dockutil --list | grep -Fq "${APP_NAME}"; then
+              dockutil --add "$APP_PATH" --no-restart
+              echo "Changed"
+            else
+              echo "NoChange"
+            fi
+          args:
+            executable: /bin/bash
+          loop: "{{ dock_apps_add | default([]) }}"
+          loop_control:
+            label: "{{ item }}"
+          register: dock_apps_add_results
+          changed_when: "'Changed' in (dock_apps_add_results.stdout | default(''))"
+          failed_when: false
+          notify: Restart Dock
+
+        - name: Remove unwanted items from Dock
+          ansible.builtin.shell: |
+            if dockutil --list | grep -Fq "{{ item }}"; then
+              dockutil --remove '{{ item }}' --no-restart
+              echo "Changed"
+            else
+              echo "NoChange"
+            fi
+          args:
+            executable: /bin/bash
+          loop: "{{ dock_apps_remove | default([]) }}"
+          loop_control:
+            label: "{{ item }}"
+          register: dock_apps_remove_results
+          changed_when: "'Changed' in (dock_apps_remove_results.stdout | default(''))"
+          failed_when: false
+          notify: Restart Dock
+
+  rescue:
+    - name: Display Dock customization error
+      ansible.builtin.debug:
+        msg: |
+          ⚠️ Dock customization encountered an issue.
+
+          Failed task: {{ ansible_failed_task.name | default('unknown') }}
+          Error details: {{ ansible_failed_result.msg | default(ansible_failed_result.stderr | default('Unknown error')) }}
+
+    - name: Continue or fail based on Dock configuration
+      ansible.builtin.fail:
+        msg: "Dock customization failed."
+      when: macos_base_fail_on_dock_error | default(false)

@@ -1,0 +1,39 @@
+---
+# playbooks/vars/users/chris.yml
+
+dock_apps_add:
+  - Activity Monitor
+  - Google Chrome
+  - Terminal
+
+dock_apps_remove:
+  - App Store
+  - Calendar
+  - Contacts
+  - FaceTime
+  - Freeform
+  - Keynote
+  - Mail
+  - Maps
+  - Music
+  - News
+  - Numbers
+  - Pages
+  - Safari
+  - System Settings
+  - TV
+
+dock_groups:
+  Development:
+    - Terminal
+    - Visual Studio Code
+  Productivity:
+    - Calendar
+  Utilities:
+    - App Store
+    - Contacts
+    - FaceTime
+    - Maps
+    - System Settings
+  Test:
+    - Maps

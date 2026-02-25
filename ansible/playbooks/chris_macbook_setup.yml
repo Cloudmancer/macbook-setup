@@ -1,0 +1,13 @@
+---
+# playbooks/chris_macbook_setup.yml
+
+- name: Setup MacBook
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+
+  vars_files:
+    - "{{ playbook_dir }}/vars/users/chris.yml"
+
+  roles:
+    - role: macos_base

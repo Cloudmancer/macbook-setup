@@ -1,0 +1,45 @@
+---
+# common/directories/tasks/main.yml
+
+- name: Directories | "{{ directories_label }}"
+  tags: [dirs]
+  block:
+    - name: Directories | Create paths ("{{ directories_label }}")
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "{{ directories_mode }}"
+        owner: "{{ directories_owner if directories_owner is not none else omit }}"
+        group: "{{ directories_group if directories_group is not none else omit }}"
+      loop: "{{ directories_list | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+      when: (directories_list | default([]) | length) > 0
+
+    - name: Directories | No paths requested ("{{ directories_label }}")
+      ansible.builtin.debug:
+        msg: "No directories requested for {{ directories_label }}."
+      when: (directories_list | default([]) | length) == 0
+
+  rescue:
+    - name: Directories | error summary ("{{ directories_label }}")
+      ansible.builtin.debug:
+        msg: |
+          ⚠️ Directory creation failed for {{ directories_label }}.
+
+          Failed task: {{ ansible_failed_task.name | default('unknown') }}
+          Error: {{ ansible_failed_result.msg | default(ansible_failed_result.stderr | default('Unknown error')) }}
+
+    - name: Directories | Fail if configured ("{{ directories_label }}")
+      ansible.builtin.fail:
+        msg: "Directory creation failed for {{ directories_label }}."
+      when: directories_fail_on_error | default(true)
+
+  always:
+    - name: Directories | Summary ("{{ directories_label }}")
+      ansible.builtin.debug:
+        msg:
+          - "Label: {{ directories_label }}"
+          - "Requested directory count: {{ (directories_list | default([]) | length) }}"
+          - "Mode: {{ directories_mode }}"
+      when: directories_show_summary | default(true)
