@@ -8,6 +8,8 @@
 
   vars_files:
     - "{{ playbook_dir }}/vars/users/chris.yml"
+    - "{{ playbook_dir }}/vars/users/secrets.yml"
 
   roles:
     - role: macos_base
+    - role: developer_setup
