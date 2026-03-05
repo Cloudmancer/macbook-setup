@@ -1,0 +1,66 @@
+---
+# developer_setup/tasks/main.yml
+
+- name: developer_setup | Install developer packages via common Homebrew role
+  ansible.builtin.include_role:
+    name: common/homebrew
+    apply:
+      tags: [dev, brew, packages]
+  vars:
+    homebrew_update: "{{ developer_setup_homebrew_update | default(false) }}"
+    homebrew_formula_list: "{{ developer_setup_homebrew_formula_list | default([]) }}"
+    homebrew_cask_list: "{{ developer_setup_homebrew_cask_list | default([]) }}"
+    homebrew_install_label: "developer_setup"
+    homebrew_fail_on_error: "{{ developer_setup_homebrew_fail_on_error | default(false) }}"
+    homebrew_show_summary: true
+  when: developer_setup_install_homebrew
+  tags: [dev, brew, packages]
+
+- name: developer_setup | Create developer directories via common role
+  ansible.builtin.include_role:
+    name: common/directories
+    apply:
+      tags: [dev, directories, folders]
+  vars:
+    directories_list: "{{ developer_setup_directories_list | default([]) }}"
+    directories_mode: "{{ developer_setup_directories_mode | default('0755') }}"
+    directories_label: "developer_setup directories"
+    directories_fail_on_error: "{{ developer_setup_directories_fail_on_error | default(false) }}"
+    directories_show_summary: true
+  when: developer_setup_install_directories
+  tags: [dirs, folders, dev]
+
+- name: developer_setup | Configure Git
+  ansible.builtin.import_tasks: git.yml
+  when: developer_setup_install_git
+  tags: [dev, git]
+
+- name: developer_setup | Configure VS Code
+  ansible.builtin.import_tasks: vscode.yml
+  when: developer_setup_install_vscode
+  tags: [dev, vscode]
+
+- name: developer_setup | Setup XCode
+  ansible.builtin.import_tasks: xcode.yml
+  when: developer_setup_install_xcode
+  tags: [dev, xcode]
+
+- name: developer_setup | Setup Podman
+  ansible.builtin.import_tasks: podman.yml
+  when: developer_setup_install_podman
+  tags: [dev, podman]
+
+- name: developer_setup | Setup NVM
+  ansible.builtin.import_tasks: nvm.yml
+  when: developer_setup_install_nvm
+  tags: [dev, nvm]
+
+- name: developer_setup | Setup Ruby Gems
+  ansible.builtin.import_tasks: ruby.yml
+  when: developer_setup_install_ruby
+  tags: [dev, ruby]
+
+- name: developer_setup | Setup Structurizr
+  ansible.builtin.import_tasks: structurizr.yml
+  when: developer_setup_install_structurizr
+  tags: [dev, structurizr]

@@ -1,0 +1,89 @@
+---
+# developer_setup/tasks/xcode.yml
+
+- name: Xcode post-install configuration
+  block:
+
+    - name: Verify Xcode is installed in /Applications
+      ansible.builtin.stat:
+        path: /Applications/Xcode.app
+      register: xcode_manual_check
+
+    - name: Check current selected developer path
+      ansible.builtin.command: xcode-select -p
+      when: xcode_manual_check.stat.exists
+      register: xcode_path
+      changed_when: false
+      failed_when: false
+
+    - name: Configure Xcode after manual install
+      when: xcode_manual_check.stat.exists
+      block:
+
+        - name: Select Xcode developer directory
+          ansible.builtin.command: xcode-select -s /Applications/Xcode.app/Contents/Developer
+          become: true
+          when: (xcode_path.stdout | default('') | trim) != '/Applications/Xcode.app/Contents/Developer'
+          register: xcode_select_result
+          changed_when: (xcode_path.stdout | default('') | trim) != '/Applications/Xcode.app/Contents/Developer'
+
+        - name: Check first-launch/license status
+          ansible.builtin.command: xcodebuild -checkFirstLaunchStatus
+          register: xcode_first_launch_status
+          changed_when: false
+          failed_when: false
+          become: true
+
+        - name: Accept Xcode license when needed
+          ansible.builtin.command: xcodebuild -license accept
+          when: xcode_first_launch_status.rc != 0
+          register: xcode_license_accept
+          changed_when: xcode_license_accept.rc == 0
+          become: true
+
+        - name: Run Xcode first-launch setup (components/simulators if needed)
+          ansible.builtin.command: xcodebuild -runFirstLaunch
+          register: xcode_run_first_launch
+          changed_when: >
+            xcode_first_launch_status.rc != 0 and
+            xcode_run_first_launch.rc == 0
+          failed_when: false
+          become: true
+
+    - name: Inform when Xcode is not installed
+      ansible.builtin.debug:
+        msg: "Xcode.app not found in /Applications. Skipping Xcode post-install configuration."
+      when: not xcode_manual_check.stat.exists
+
+  rescue:
+    - name: Display Xcode configuration error
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  Xcode configuration encountered an issue.
+
+          Troubleshooting steps:
+          1. Open Xcode.app manually to complete first-run setup
+          2. Install Command Line Tools: xcode-select --install
+          3. Accept license manually: sudo xcodebuild -license accept
+          4. Re-run this playbook with sudo prompt: ansible-playbook ... -K
+
+          Failed task: {{ ansible_failed_task.name | default('unknown') }}
+          Error details: {{ ansible_failed_result.msg | default(ansible_failed_result.stderr | default('Unknown error')) }}
+
+    - name: Continue or fail based on configuration
+      ansible.builtin.fail:
+        msg: "Xcode setup is required for iOS development. Please resolve the issues above."
+      when: developer_setup_xcode_fail_on_error | default(false)
+
+  always:
+    - name: Check selected Xcode path (post-run diagnostics)
+      ansible.builtin.command: xcode-select -p
+      register: xcode_path_final
+      changed_when: false
+      failed_when: false
+
+    - name: Show Xcode diagnostics summary
+      ansible.builtin.debug:
+        msg:
+          - "Xcode installed: {{ xcode_manual_check.stat.exists | default(false) }}"
+          - "Selected developer path: {{ xcode_path_final.stdout | default('unknown') }}"

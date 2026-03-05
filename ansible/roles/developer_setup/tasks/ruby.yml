@@ -1,0 +1,35 @@
+---
+# developer_setup/tasks/ruby.yml
+
+- name: Check if gem is already installed
+  ansible.builtin.command:
+    cmd: "/opt/homebrew/opt/ruby/bin/gem list -i {{ item }}"
+  loop: "{{ developer_setup_ruby_gems }}"
+  when: developer_setup_ruby_gems | length > 0
+  register: gem_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Ruby gems using Homebrew Ruby
+  ansible.builtin.command:
+    cmd: "/opt/homebrew/opt/ruby/bin/gem install {{ item.item }} --no-document"
+  loop: "{{ gem_check.results }}"
+  when:
+    - developer_setup_ruby_gems | length > 0
+    - item.stdout.strip() == "false"
+  register: gem_install
+  changed_when: "'Successfully installed' in gem_install.stdout"
+
+- name: Get Ruby gems bin path
+  ansible.builtin.command:
+    cmd: "/opt/homebrew/opt/ruby/bin/ruby -e 'puts Gem.bindir'"
+  register: ruby_gems_bin
+  changed_when: false
+
+- name: Add Ruby gems bin to PATH in .zshrc
+  ansible.builtin.blockinfile:
+    path: "{{ lookup('env', 'HOME') }}/.zshrc"
+    marker: "# {mark} ANSIBLE MANAGED - Ruby gems PATH"
+    block: |
+      export PATH="{{ ruby_gems_bin.stdout }}:$PATH"
+      export PATH="/opt/homebrew/opt/ruby/bin:$PATH"

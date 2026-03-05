@@ -1,6 +1,7 @@
 ---
 # playbooks/vars/users/chris.yml
 
+## Mac OS Base Setup ============================
 dock_apps_add:
   - Activity Monitor
   - Google Chrome
@@ -37,3 +38,45 @@ dock_groups:
     - System Settings
   Test:
     - Maps
+
+# Developer Setup ===============================
+## Feature Flags
+developer_setup_install_homebrew: true
+developer_setup_install_directories: true
+developer_setup_install_vscode: true
+developer_setup_install_xcode: true
+developer_setup_install_podman: true
+developer_setup_install_nvm: true
+developer_setup_install_ruby: true
+developer_setup_install_structurizr: true
+
+
+developer_setup_homebrew_formula_list:
+  - git
+  - gh
+  - podman
+  - python
+  - ruby
+  - terraform
+
+developer_setup_ruby_gems:
+  - asciidoctor
+  - asciidoctor-pdf
+
+developer_setup_vscode_extensions:
+  - redhat.ansible
+  - mhutchie.git-graph                # Git Graph
+  - shardulm94.trailing-spaces        # Trailing Spaces
+  - wholroyd.jinja                    # Jinja
+  # Documentation Extensions
+  - tomoki1207.pdf                    # VSCode-pdf
+  - asciidoctor.asciidoctor-vscode    # AsciiDoc
+  # HashiCorp Extensions
+  - hashicorp.terraform               # Terraform
+  # Microsoft Extension
+  - ms-mssql.mssql                     # SQL Server (mssql)
+  # Python Extensions
+  - ms-python.vscode-pylance          # Pylance
+  - ms-python.python                  # Python
+  - ms-python.debugpy                 # Python Debugger
+  - ms-python.vscode-python-envs      # Python Environments

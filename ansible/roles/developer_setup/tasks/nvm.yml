@@ -1,0 +1,177 @@
+---
+# developer_setup/tasks/nvm.yml
+
+- name: NVM / Node.js / EAS CLI setup
+  vars:
+    nvm_dir: "{{ lookup('env', 'HOME') }}/.nvm"
+
+    node_version_normalized: >-
+      {{
+        (developer_setup_node_version | string)
+        if (developer_setup_node_version | string).startswith('v')
+        else 'v' ~ (developer_setup_node_version | string)
+      }}
+
+    node_install_dir: "{{ lookup('env', 'HOME') }}/.nvm/versions/node/{{ node_version_normalized }}"
+    node_binary_path: "{{ node_install_dir }}/bin/node"
+    npm_binary_path: "{{ node_install_dir }}/bin/npm"
+    eas_binary_path: "{{ node_install_dir }}/bin/eas"
+
+    nvm_init_snippet: |
+      export NVM_DIR="{{ lookup('env', 'HOME') }}/.nvm"
+      [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+  block:
+    - name: Ensure .zshrc exists
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.zshrc"
+        state: touch
+        mode: "0644"
+
+    - name: Install NVM (if missing)
+      ansible.builtin.shell: >
+        curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/{{ developer_setup_nvm_version }}/install.sh | bash
+      args:
+        executable: /bin/bash
+        creates: "{{ nvm_dir }}/nvm.sh"
+
+    - name: Add NVM initialization to .zshrc
+      ansible.builtin.blockinfile:
+        path: "{{ lookup('env', 'HOME') }}/.zshrc"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - NVM"
+        create: true
+        block: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
+
+    - name: Install Node.js via NVM (if target version is missing)
+      ansible.builtin.shell: |
+        {{ nvm_init_snippet }}
+        nvm install {{ node_version_normalized }}
+      args:
+        executable: /bin/bash
+        creates: "{{ node_binary_path }}"
+
+    - name: Check current default Node alias
+      ansible.builtin.shell: |
+        {{ nvm_init_snippet }}
+        nvm alias default
+      args:
+        executable: /bin/bash
+      register: nvm_default_alias
+      changed_when: false
+      failed_when: false
+
+    - name: Set default Node alias (only if needed)
+      ansible.builtin.shell: |
+        {{ nvm_init_snippet }}
+        nvm alias default {{ node_version_normalized }}
+      args:
+        executable: /bin/bash
+      when: node_version_normalized not in (nvm_default_alias.stdout | default(''))
+      changed_when: node_version_normalized not in (nvm_default_alias.stdout | default(''))
+
+    - name: Verify Node.js installation
+      ansible.builtin.shell: |
+        {{ nvm_init_snippet }}
+        nvm use {{ node_version_normalized }} >/dev/null
+        node --version
+      args:
+        executable: /bin/bash
+      register: node_version_output
+      changed_when: false
+
+    # EAS CLI install strategy:
+    # - If eas_cli_version == "latest": install only when missing (fast, idempotent enough)
+    # - If pinned version: compare version and install/upgrade only when mismatch
+    - name: Check installed EAS CLI version (if present)
+      ansible.builtin.shell: |
+        {{ nvm_init_snippet }}
+        nvm use {{ node_version_normalized }} >/dev/null
+        eas --version
+      args:
+        executable: /bin/bash
+      register: eas_current_version
+      changed_when: false
+      failed_when: false
+
+    - name: Install EAS CLI globally via NVM (latest, only if missing)
+      ansible.builtin.shell: |
+        {{ nvm_init_snippet }}
+        nvm use {{ node_version_normalized }} >/dev/null
+        npm install -g eas-cli
+      args:
+        executable: /bin/bash
+        creates: "{{ eas_binary_path }}"
+      when: (developer_setup_eas_cli_version | default('latest')) == 'latest'
+
+    - name: Install/upgrade EAS CLI to pinned version (only if needed)
+      ansible.builtin.shell: |
+        {{ nvm_init_snippet }}
+        nvm use {{ node_version_normalized }} >/dev/null
+        npm install -g eas-cli@{{ developer_setup_eas_cli_version }}
+      args:
+        executable: /bin/bash
+      when:
+        - (developer_setup_eas_cli_version | default('latest')) != 'latest'
+        - eas_current_version.rc != 0 or (developer_setup_eas_cli_version | string) not in (eas_current_version.stdout | default(''))
+      changed_when: >
+        eas_current_version.rc != 0 or
+        (developer_setup_eas_cli_version | string) not in (eas_current_version.stdout | default(''))
+
+    - name: Verify EAS CLI installation
+      ansible.builtin.shell: |
+        {{ nvm_init_snippet }}
+        nvm use {{ node_version_normalized }} >/dev/null
+        eas --version
+      args:
+        executable: /bin/bash
+      register: eas_version_output
+      changed_when: false
+
+    - name: Display installed tool versions
+      ansible.builtin.debug:
+        msg:
+          - "NVM script: {{ nvm_dir }}/nvm.sh"
+          - "Node target version: {{ node_version_normalized }}"
+          - "Node installed version: {{ node_version_output.stdout | default('unknown') }}"
+          - "EAS CLI installed version: {{ eas_version_output.stdout | default('unknown') }}"
+
+  rescue:
+    - name: Display NVM/Node/EAS setup error
+      ansible.builtin.debug:
+        msg: |
+          ⚠️ NVM/Node/EAS setup encountered an issue.
+
+          Troubleshooting steps:
+          1. Verify internet access to GitHub and npm registry
+          2. Confirm NVM install script exists: {{ nvm_dir }}/nvm.sh
+          3. Test manually:
+             export NVM_DIR="$HOME/.nvm"
+             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+             nvm --version
+             nvm install {{ node_version_normalized }}
+          4. Re-run the playbook
+
+          Failed task: {{ ansible_failed_task.name | default('unknown') }}
+          Error details: {{ ansible_failed_result.msg | default(ansible_failed_result.stderr | default('Unknown error')) }}
+
+    - name: Continue or fail based on configuration
+      ansible.builtin.fail:
+        msg: "NVM/Node/EAS setup is required for the mobile/expo development workflow."
+      when: developer_setup_nvm_fail_on_error | default(false)
+
+  always:
+    - name: Final check - NVM script exists
+      ansible.builtin.stat:
+        path: "{{ nvm_dir }}/nvm.sh"
+      register: nvm_script_final
+      changed_when: false
+
+    - name: Final diagnostics summary
+      ansible.builtin.debug:
+        msg:
+          - "NVM installed: {{ nvm_script_final.stat.exists | default(false) }}"
+          - "Target Node version: {{ node_version_normalized }}"
+          - "Node install path: {{ node_install_dir }}"

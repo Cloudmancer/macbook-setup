@@ -1,0 +1,120 @@
+---
+# developer_setup/tasks/podman.yml
+
+- name: Podman setup on macOS
+  block:
+    - name: Apple Silicon prerequisites (Rosetta)
+      when: ansible_facts["architecture"] == "arm64"
+      block:
+        - name: Check if Rosetta is installed
+          ansible.builtin.stat:
+            path: /Library/Apple/usr/share/rosetta/rosetta
+          register: rosetta_check
+          changed_when: false
+
+        - name: Install Rosetta 2 (required for some Podman machine paths on Apple Silicon)
+          ansible.builtin.command: /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+          when: not rosetta_check.stat.exists
+          register: rosetta_install
+          changed_when: rosetta_install.rc == 0
+          become: true
+
+      rescue:
+        - name: Show Rosetta-specific troubleshooting
+          ansible.builtin.debug:
+            msg: |
+              Rosetta setup failed on Apple Silicon.
+              Try manually:
+                softwareupdate --install-rosetta --agree-to-license
+              Then rerun with sudo prompt:
+                ansible-playbook ... -K
+
+        - name: Re-raise Rosetta failure
+          ansible.builtin.fail:
+            msg: "Rosetta is required for this Podman setup path."
+
+    - name: Get Podman machine list (JSON)
+      ansible.builtin.command: /bin/bash -lc "podman machine list --format json"
+      register: podman_machine_list
+      changed_when: false
+      failed_when: false
+
+    - name: Parse Podman machine list JSON
+      ansible.builtin.set_fact:
+        podman_machines: "{{ podman_machine_list.stdout | default('[]') | from_json }}"
+      when:
+        - podman_machine_list.rc == 0
+        - (podman_machine_list.stdout | default('') | trim | length) > 0
+
+    - name: Normalize Podman machines list when command failed or returned empty
+      ansible.builtin.set_fact:
+        podman_machines: []
+      when: podman_machines is not defined
+
+    - name: Determine Podman machine name to use
+      ansible.builtin.set_fact:
+        podman_machine_name_effective: >-
+          {{
+            (developer_setup_podman_machine_name | default('')) if (developer_setup_podman_machine_name is defined and (developer_setup_podman_machine_name | length > 0))
+            else (
+              (podman_machines[0].Name)
+              if (podman_machines | length > 0)
+              else 'podman-machine-default'
+            )
+          }}
+
+    - name: Initialize Podman machine if none exists
+      ansible.builtin.command: /bin/bash -lc "podman machine init {{ podman_machine_name_effective }}"
+      when: (podman_machines | length) == 0
+      register: podman_machine_init
+      changed_when: podman_machine_init.rc == 0 and (podman_machines | length) == 0
+      failed_when: false
+
+    - name: Start Podman machine
+      ansible.builtin.command: /bin/bash -lc "podman machine start {{ podman_machine_name_effective }}"
+      register: podman_machine_start
+      changed_when: >
+        'already running' not in ((podman_machine_start.stdout | default('')) | lower) and
+        'already running' not in ((podman_machine_start.stderr | default('')) | lower)
+      failed_when: false
+
+    - name: Verify Podman is reachable
+      ansible.builtin.command: /bin/bash -lc "podman info --format json"
+      register: podman_info
+      changed_when: false
+
+  rescue:
+    - name: Display Podman setup error
+      ansible.builtin.debug:
+        msg: |
+          ⚠️ Podman setup encountered an issue.
+
+          Troubleshooting steps:
+          1. Verify Podman is installed: podman --version
+          2. Check machine status: podman machine list
+          3. Start machine manually: podman machine start {{ podman_machine_name_effective | default('') }}
+          4. On Apple Silicon, install Rosetta if prompted
+          5. Re-run playbook with sudo prompt if needed: ansible-playbook ... -K
+          6. Note: Structurizr Lite requires Podman to be running - resolve Podman issues first.
+
+          Failed task: {{ ansible_failed_task.name | default('unknown') }}
+          Error details: {{ ansible_failed_result.msg | default(ansible_failed_result.stderr | default('Unknown error')) }}
+
+    - name: Continue or fail based on configuration
+      ansible.builtin.fail:
+        msg: "Podman setup is required for local container-based tools (e.g., Structurizr Lite)."
+      when: developer_setup_podman_fail_on_error | default(false)
+
+  always:
+    - name: Show Podman machine list (post-run diagnostics)
+      ansible.builtin.command: /bin/bash -lc "podman machine list"
+      register: podman_machine_list_final
+      changed_when: false
+      failed_when: false
+
+    - name: Show Podman diagnostics summary
+      ansible.builtin.debug:
+        msg:
+          - "Podman machine selected: {{ podman_machine_name_effective | default('not determined') }}"
+          - "Machine list rc: {{ podman_machine_list_final.rc | default('n/a') }}"
+          - "Machine list: {{ podman_machine_list_final.stdout_lines | default([]) }}"
