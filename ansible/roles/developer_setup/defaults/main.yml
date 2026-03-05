@@ -1,0 +1,67 @@
+---
+# developer_setup/defaults/main.yml
+
+# Feature flags =================================
+developer_setup_install_homebrew: true
+developer_setup_install_directories: true
+developer_setup_install_git: true
+developer_setup_install_vscode: true
+developer_setup_install_xcode: true
+developer_setup_install_podman: false
+developer_setup_install_nvm: false
+developer_setup_install_ruby: false
+developer_setup_install_structurizr: false
+
+# Developer Homebrew ============================
+developer_setup_homebrew_update: false
+developer_setup_homebrew_cask_list: []
+developer_setup_homebrew_fail_on_error: false
+developer_setup_homebrew_formula_list:
+  - git
+  - python
+
+# Developer directories =========================
+developer_setup_base_directory: "{{ ansible_facts['env']['HOME'] }}/Development"
+developer_setup_directories_fail_on_error: false
+developer_setup_directories_list:
+  - "{{ developer_setup_base_directory }}"
+  - "{{ developer_setup_base_directory }}/architecture"
+  - "{{ developer_setup_base_directory }}/projects"
+  - "{{ developer_setup_base_directory }}/terraform"
+  - "{{ developer_setup_base_directory }}/test"
+
+developer_setup_directories_mode: "0755"
+
+# Git ===========================================
+developer_setup_git_aliases:
+  br: branch
+  lg: "log --oneline --graph --decorate --all"
+developer_setup_git_default_branch: main
+developer_setup_git_user_name: ""
+developer_setup_git_user_email: ""
+
+# NVM ===========================================
+developer_setup_eas_cli_version: "latest"
+developer_setup_nvm_version: "v0.40.3"
+developer_setup_node_version: "20.19.0"
+developer_setup_nvm_fail_on_error: false
+
+# Podman ========================================
+developer_setup_podman_machine_name: "podman-machine-default"
+developer_setup_podman_fail_on_error: false
+
+# Ruby ==========================================
+developer_setup_ruby_gems: []
+
+# Structurizr ===================================
+developer_setup_structurizr_image: structurizr/lite
+developer_setup_structurizr_version: latest
+developer_setup_structurizr_port: 8080
+developer_setup_structurizr_workspace_path: "{{ developer_setup_base_directory }}/structurizr"
+developer_setup_structurizr_bin_path: /opt/homebrew/bin
+
+# VSCode ========================================
+developer_setup_vscode_extensions: []
+
+# XCode =========================================
+developer_setup_xcode_fail_on_error: false

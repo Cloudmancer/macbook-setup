@@ -1,0 +1,27 @@
+---
+# developer_setup/tasks/git.yml
+
+- name: Configure git user name
+  community.general.git_config:
+    name: user.name
+    scope: global
+    value: "{{ developer_setup_git_user_name }}"
+
+- name: Configure git user email
+  community.general.git_config:
+    name: user.email
+    scope: global
+    value: "{{ developer_setup_git_user_email }}"
+
+- name: Configure default branch name
+  community.general.git_config:
+    name: init.defaultBranch
+    scope: global
+    value: "{{ developer_setup_git_default_branch }}"
+
+- name: Configure git aliases
+  community.general.git_config:
+    name: "alias.{{ item.key }}"
+    scope: global
+    value: "{{ item.value }}"
+  loop: "{{ developer_setup_git_aliases | dict2items }}"

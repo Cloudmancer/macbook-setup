@@ -1,0 +1,25 @@
+---
+# developer_setup/tasks/structurizr.yml
+
+- name: Ensure Structurizr workspace directory exists
+  ansible.builtin.file:
+    path: "{{ developer_setup_structurizr_workspace_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Pull Structurizr Lite image
+  ansible.builtin.command:
+    cmd: "podman pull {{ developer_setup_structurizr_image }}:{{ developer_setup_structurizr_version }}"
+  register: podman_pull
+  changed_when: "'Copying' in podman_pull.stdout"
+
+- name: Create Structurizr shell script
+  ansible.builtin.copy:
+    dest: "{{ developer_setup_structurizr_bin_path }}/structurizr"
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      podman run -it --rm \
+        -p {{ developer_setup_structurizr_port }}:8080 \
+        -v {{ developer_setup_structurizr_workspace_path }}:/usr/local/structurizr \
+        {{ developer_setup_structurizr_image }}:{{ developer_setup_structurizr_version }}

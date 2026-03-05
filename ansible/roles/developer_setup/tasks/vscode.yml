@@ -1,0 +1,19 @@
+---
+# developer_setup/tasks/vscode.yml
+
+- name: Check if VS Code extension is already installed
+  ansible.builtin.command:
+    cmd: code --list-extensions
+  when: developer_setup_vscode_extensions | length > 0
+  register: vscode_installed_extensions
+  changed_when: false
+
+- name: Install VS Code extensions
+  ansible.builtin.command:
+    cmd: code --install-extension {{ item }}
+  loop: "{{ developer_setup_vscode_extensions }}"
+  when:
+    - developer_setup_vscode_extensions | length > 0
+    - item not in vscode_installed_extensions.stdout
+  register: vscode_ext
+  changed_when: "'successfully installed' in vscode_ext.stdout | lower"
