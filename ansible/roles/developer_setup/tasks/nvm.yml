@@ -27,6 +27,8 @@
         path: "{{ lookup('env', 'HOME') }}/.zshrc"
         state: touch
         mode: "0644"
+        modification_time: preserve
+        access_time: preserve
 
     - name: Install NVM (if missing)
       ansible.builtin.shell: >
