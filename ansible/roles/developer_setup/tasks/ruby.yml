@@ -33,3 +33,4 @@
     block: |
       export PATH="{{ ruby_gems_bin.stdout }}:$PATH"
       export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+  when: ruby_gems_bin.stdout is defined and ruby_gems_bin.stdout | length > 0
