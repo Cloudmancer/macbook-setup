@@ -1,0 +1,10 @@
+---
+# playbooks/macbook_setup.yml
+
+- name: Setup MacBook
+  hosts: macbooks
+  gather_facts: yes
+
+  roles:
+    - role: macos_base
+    - role: developer_setup
